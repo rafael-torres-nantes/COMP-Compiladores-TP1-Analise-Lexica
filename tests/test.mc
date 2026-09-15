@@ -11,6 +11,9 @@
 // incluindo entradas invalidas (veja a Secao 4.1 do enunciado).
 
 /* Calcula o fatorial de um numero inteiro utilizando um laco for. */
+
+/* Comentario de bloco
+   em mais de uma linha. */
 int fatorial(int n) {
     int resultado;
     int i;
@@ -25,6 +28,7 @@ int fatorial(int n) {
 int main() {
     int x;
     int y;
+    int linhas, colunas;
     char c;
     char letras[10];
 
@@ -54,5 +58,24 @@ int main() {
         print("x nao e negativo");
     }
 
+    // Constante negativa x subtracao
+    x = -5;
+    x = (-42);
+    y = x - 5;
+    y = fatorial(x) - 1;
+    y = letras[0] - 1;
+
+    y = x + 1 * 2 / 3 % 4;
+
+    print("linha\ntabulacao\taspas \" barra \\ fim");
+    c = '\n';
+
     return 0;
 }
+
+// --- Erros lexicos recuperaveis (Secao 4.1 do enunciado) -------------
+@
+*/
+c = 'ab';
+print("sem fim
+print("nulo\0aqui");
