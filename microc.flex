@@ -77,11 +77,70 @@ YYSTYPE microc_yylval;
  * codigo "normal", dentro de comentarios ou dentro de strings). */
 int linha_atual = 1;
 
+/* Tabela de strings (Secao 4.2): cada lexema distinto e guardado uma
+ * unica vez, e toda ocorrencia seguinte recebe o mesmo ponteiro. */
+typedef struct Symbol {
+    char *lexema;
+    struct Symbol *proximo;
+} Symbol;
+
+static Symbol *tabela_strings = NULL;
+
+static char *insere_simbolo(const char *lexema) {
+    Symbol *s;
+
+    for (s = tabela_strings; s != NULL; s = s->proximo)
+        if (strcmp(s->lexema, lexema) == 0)
+            return s->lexema;
+
+    s = malloc(sizeof *s);
+    s->lexema = strdup(lexema);
+    s->proximo = tabela_strings;
+    tabela_strings = s;
+    return s->lexema;
+}
+
 /* Funcao auxiliar para preencher microc_yylval.symbol com uma copia do
  * texto reconhecido (yytext). Sinta-se livre para usar/adaptar. */
 static void guarda_lexema(void) {
-    microc_yylval.symbol = strdup(yytext);
+    microc_yylval.symbol = insere_simbolo(yytext);
 }
+
+/* Caractere de uma sequencia de escape; os demais (\\, \") representam
+ * a si mesmos. */
+static char converte_escape(char c) {
+    switch (c) {
+    case 'n': return '\n';
+    case 't': return '\t';
+    case '0': return '\0';
+    default:  return c;
+    }
+}
+
+/* Guarda o conteudo da string (yytext sem as aspas) com os escapes ja
+ * convertidos. Devolve 0 quando ha caractere nulo, que e erro lexico. */
+static int guarda_string(void) {
+    char *s = malloc(yyleng);
+    int i, j = 0, nulo = 0;
+
+    for (i = 1; i < yyleng - 1; i++) {
+        char c = yytext[i];
+        if (c == '\\')
+            c = converte_escape(yytext[++i]);
+        if (c == '\0')
+            nulo = 1;
+        s[j++] = c;
+    }
+    s[j] = '\0';
+    microc_yylval.symbol = insere_simbolo(s);
+    free(s);
+    return !nulo;
+}
+
+/* Ultimo token devolvido: decide se um '-' inicia uma constante
+ * negativa ou e o operador de subtracao. */
+static int ultimo_token = UNDEF;
+#define YY_DECL int microc_scan(void)
 
 %}
 
@@ -106,7 +165,7 @@ ALFANUM     [a-zA-Z0-9_]
   * do flex), pois o token UNDEF tambem vale 0 no enum TokenType -- se
   * dependessemos do comportamento padrao, um erro lexico seria
   * confundido com o fim do arquivo pelo main() de teste abaixo. */
-<<EOF>>             { return END_OF_FILE; }
+<INITIAL><<EOF>>    { return END_OF_FILE; }
 
  /* --- Espacos em branco e quebras de linha ---------------------------- */
 \n                  { linha_atual++; }
@@ -121,6 +180,7 @@ ALFANUM     [a-zA-Z0-9_]
 <COMMENT>"*/"       { BEGIN(INITIAL); }
 <COMMENT>\n         { linha_atual++; }
 <COMMENT><<EOF>>    {
+                        BEGIN(INITIAL);  /* sem isto a regra se repetiria indefinidamente */
                         microc_yylval.error_msg = "EOF em comentario";
                         return UNDEF;
                     }
@@ -142,6 +202,15 @@ ALFANUM     [a-zA-Z0-9_]
   * guarda_lexema() (ou equivalente) quando o token for de fato ID. */
 {LETRA}{ALFANUM}*   {
                         /* TODO(aluno): reconhecer palavras reservadas aqui */
+                        if (strcmp(yytext, "main")   == 0) return MAIN;
+                        if (strcmp(yytext, "if")     == 0) return IF;
+                        if (strcmp(yytext, "else")   == 0) return ELSE;
+                        if (strcmp(yytext, "for")    == 0) return FOR;
+                        if (strcmp(yytext, "return") == 0) return RETURN;
+                        if (strcmp(yytext, "int")    == 0) return INT;
+                        if (strcmp(yytext, "char")   == 0) return CHAR;
+                        if (strcmp(yytext, "print")  == 0) return PRINT;
+
                         guarda_lexema();
                         return ID;
                     }
@@ -158,11 +227,37 @@ ALFANUM     [a-zA-Z0-9_]
                         return INTEGERCONST;
                     }
 
+ /* Depois de ID, constante, ')' ou ']', o '-' e subtracao, e yyless(1)
+  * devolve os digitos a entrada. */
+"-"{DIGIT}+         {
+                        if (ultimo_token == ID || ultimo_token == INTEGERCONST ||
+                            ultimo_token == CHARCONST || ultimo_token == STRINGCONST ||
+                            ultimo_token == RPAREN || ultimo_token == RBRACKET) {
+                            yyless(1);
+                            return MINUS;
+                        }
+                        guarda_lexema();
+                        return INTEGERCONST;
+                    }
+
  /* --- Constantes de caractere --------------------------------------------
   * TODO(aluno): reconhecer o padrao 'x' (aspas simples, um caractere,
   * aspas simples) e devolver CHARCONST. Trate tambem o caso de erro em
   * que as aspas simples nao sao fechadas corretamente (token UNDEF). */
+"'"([^'\\\n]|\\.)"'"    {
+                        char valor[2];
 
+                        valor[0] = yytext[1] == '\\' ? converte_escape(yytext[2]) : yytext[1];
+                        valor[1] = '\0';
+                        microc_yylval.symbol = insere_simbolo(valor);
+                        return CHARCONST;
+                    }
+
+ /* Qualquer outra sequencia iniciada por aspas simples e erro lexico. */
+"'"([^'\\\n]|\\.)*"'"?    {
+                        microc_yylval.error_msg = "Constante de caractere invalida";
+                        return UNDEF;
+                    }
 
  /* --- Constantes de string -------------------------------------------
   * TODO(aluno): reconhecer o padrao "[^"\n]*" (uma ou mais aspas
@@ -175,6 +270,27 @@ ALFANUM     [a-zA-Z0-9_]
   *     ("String contem caractere nulo")
   * Alem disso, converta as sequencias de escape (\n, \t, \\, \", \0)
   * para os caracteres correspondentes antes de armazenar o lexema. */
+
+ /* A primeira regra reconhece a string fechada; as duas seguintes, os
+  * erros de quebra de linha e de EOF antes do fechamento. */
+\"([^"\\\n]|\\.)*\"    {
+                        if (!guarda_string()) {
+                            microc_yylval.error_msg = "String contem caractere nulo";
+                            return UNDEF;
+                        }
+                        return STRINGCONST;
+                    }
+
+\"([^"\\\n]|\\.)*\n    {
+                        yyless(yyleng - 1);  /* a quebra de linha volta a entrada */
+                        microc_yylval.error_msg = "String nao terminada";
+                        return UNDEF;
+                    }
+
+\"([^"\\\n]|\\.)*      {
+                        microc_yylval.error_msg = "EOF em string";
+                        return UNDEF;
+                    }
 
 
  /* --- Operadores relacionais e logicos ---------------------------------
@@ -194,6 +310,15 @@ ALFANUM     [a-zA-Z0-9_]
   *   &&             ->  AND
   *   ||             ->  OR
   */
+
+"!="                { return NEQ; }
+"!"                 { return NOT; }
+"<="                { return LEQ; }
+"<"                 { return LT; }
+">="                { return GEQ; }
+">"                 { return GT; }
+"&&"                { return AND; }
+"||"                { return OR; }
 
  /* --- Operadores aritmeticos e simbolos de pontuacao (ja prontos) ------ */
 "+"                 { return PLUS; }
@@ -228,6 +353,13 @@ ALFANUM     [a-zA-Z0-9_]
  * simplesmente parar (nao ha um proximo arquivo a processar). */
 int yywrap(void) {
     return 1;
+}
+
+/* Envelope do scanner gerado (microc_scan): registra em ultimo_token o
+ * token devolvido antes de repassa-lo. */
+int yylex(void) {
+    ultimo_token = microc_scan();
+    return ultimo_token;
 }
 
 /* main() de teste: le o arquivo passado como argumento e imprime, para
