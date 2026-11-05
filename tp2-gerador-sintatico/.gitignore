@@ -1,0 +1,5 @@
+build/
+gerador
+gerador.exe
+*.o
+lex.yy.c

@@ -1,0 +1,4 @@
+testes/gramaticas/erro_semantica.ebnf:9:23: erro: nao terminal bloco usado mas nao definido
+testes/gramaticas/erro_semantica.ebnf:10:15: erro: terminal NOME nao declarado em TOKENS
+testes/gramaticas/erro_semantica.ebnf:11:1: aviso: nao terminal sobra inalcancavel a partir de prog
+status 1

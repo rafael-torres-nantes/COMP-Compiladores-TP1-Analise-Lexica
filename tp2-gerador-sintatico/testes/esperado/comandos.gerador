@@ -1,0 +1,11 @@
+NAO TERMINAL  ANULAVEL  FIRST / FOLLOW
+programa      sim       FIRST  = {ID, 'if', 'while', '{'}
+                        FOLLOW = {$}
+comando       nao       FIRST  = {ID, 'if', 'while', '{'}
+                        FOLLOW = {$, ID, 'if', 'else', 'while', '{', '}'}
+expr          nao       FIRST  = {NUM, ID, '('}
+                        FOLLOW = {')', ';'}
+termo         nao       FIRST  = {NUM, ID, '('}
+                        FOLLOW = {')', ';', '+', '-', '<'}
+testes/gramaticas/comandos.ebnf:9:37: aviso: conflito LL(1) em comando: FIRST e FOLLOW de [ ] se intersectam (resolvido de forma gulosa) em {'else'}
+status 0

@@ -1,0 +1,13 @@
+(* Subconjunto de JSON. Exercita nao terminais anulaveis (membros, elementos)
+   e FOLLOW propagado por eles. Valida, sem avisos. *)
+TOKENS
+NUM = /[0-9]+/ ;
+STR = /"[a-zA-Z0-9_ ]*"/ ;
+SKIP = /[ \t\r\n]+/ ;
+RULES
+valor = objeto | lista | NUM | STR | "true" | "false" | "null" ;
+objeto = "{" membros "}" ;
+membros = [ par { "," par } ] ;
+par = STR ":" valor ;
+lista = "[" elementos "]" ;
+elementos = [ valor { "," valor } ] ;

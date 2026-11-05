@@ -1,0 +1,5 @@
+(* ERRO esperado: o corpo da repeticao { [ "x" ] } e anulavel (condicao 3 do slide 10). *)
+TOKENS
+SKIP = /[ \t\r\n]+/ ;
+RULES
+lista = "(" { [ "x" ] } ")" ;

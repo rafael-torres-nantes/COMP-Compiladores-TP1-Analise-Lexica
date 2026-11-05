@@ -1,0 +1,14 @@
+NAO TERMINAL  ANULAVEL  FIRST / FOLLOW
+valor         nao       FIRST  = {NUM, STR, 'true', 'false', 'null', '{', '['}
+                        FOLLOW = {$, '}', ',', ']'}
+objeto        nao       FIRST  = {'{'}
+                        FOLLOW = {$, '}', ',', ']'}
+lista         nao       FIRST  = {'['}
+                        FOLLOW = {$, '}', ',', ']'}
+membros       sim       FIRST  = {STR}
+                        FOLLOW = {'}'}
+par           nao       FIRST  = {STR}
+                        FOLLOW = {'}', ','}
+elementos     sim       FIRST  = {NUM, STR, 'true', 'false', 'null', '{', '['}
+                        FOLLOW = {']'}
+status 0

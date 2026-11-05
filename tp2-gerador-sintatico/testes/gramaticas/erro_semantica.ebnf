@@ -1,0 +1,11 @@
+(* Deve ser RECUSADA:
+   - bloco usado e nao definido
+   - NOME nao declarado em TOKENS
+   AVISO esperado: sobra inalcancavel a partir de prog *)
+TOKENS
+NUM  = /[0-9]+/ ;
+SKIP = /[ \t\r\n]+/ ;
+RULES
+prog  = item { item } bloco ;
+item  = NUM | NOME ;
+sobra = NUM ;

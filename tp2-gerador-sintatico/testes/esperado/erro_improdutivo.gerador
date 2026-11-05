@@ -1,0 +1,4 @@
+testes/gramaticas/erro_improdutivo.ebnf:7: erro: nao terminal prog improdutivo: nao deriva nenhuma cadeia de terminais
+testes/gramaticas/erro_improdutivo.ebnf:10: erro: nao terminal lista improdutivo: nao deriva nenhuma cadeia de terminais
+testes/gramaticas/erro_improdutivo.ebnf:9: erro: nao terminal laco improdutivo: nao deriva nenhuma cadeia de terminais
+status 1

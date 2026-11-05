@@ -1,0 +1,2 @@
+linha 1, coluna 7: encontrado ']', esperado um de {NUM, STR, 'true', 'false', 'null', '{', '['}
+status 1

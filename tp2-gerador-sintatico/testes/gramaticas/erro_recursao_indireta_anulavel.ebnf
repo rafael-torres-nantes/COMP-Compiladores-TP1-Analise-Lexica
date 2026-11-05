@@ -1,0 +1,10 @@
+(* Deve ser RECUSADA: recursao a esquerda indireta atraves de prefixo
+   anulavel. a -> [ "," ] b -> a ";" : o opcional pode sumir, e a chega em
+   a sem consumir token. A alternativa NUM deixa a e b produtivos, para
+   que a recursao seja o unico erro. Exemplo citado no slide 8. *)
+TOKENS
+NUM  = /[0-9]+/ ;
+SKIP = /[ \t\r\n]+/ ;
+RULES
+a = [ "," ] b ;
+b = a ";" | NUM ;

@@ -1,0 +1,10 @@
+(* Deve ser RECUSADA: laco nunca deriva uma cadeia so de terminais, e
+   lista e prog dependem dele. item continua produtivo pela alternativa NUM. *)
+TOKENS
+NUM  = /[0-9]+/ ;
+SKIP = /[ \t\r\n]+/ ;
+RULES
+prog  = item lista ;
+item  = NUM | laco ;
+laco  = "loop" laco ;
+lista = laco item ;

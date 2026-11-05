@@ -1,0 +1,7 @@
+NAO TERMINAL  ANULAVEL  FIRST / FOLLOW
+lista         nao       FIRST  = {'('}
+                        FOLLOW = {$}
+testes/gramaticas/erro_repeticao_anulavel.ebnf:5:13: erro: conflito LL(1) em lista: o conteudo de { } e anulavel
+testes/gramaticas/erro_repeticao_anulavel.ebnf:5:15: aviso: conflito LL(1) em lista: FIRST e FOLLOW de [ ] se intersectam (resolvido de forma gulosa) em {'x'}
+testes/gramaticas/erro_repeticao_anulavel.ebnf: a gramatica nao e LL(1); nenhum codigo foi gerado
+status 1
