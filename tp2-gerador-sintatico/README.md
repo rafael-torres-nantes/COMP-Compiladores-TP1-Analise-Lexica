@@ -47,8 +47,4 @@ O scanner do TP1 adaptado mora em [`microc/`](microc/).
 
 ## Documentação
 
-- [`docs/implementacao.md`](docs/implementacao.md): o que foi implementado em cada `TODO(aluno)`,
-  correções, testes e pendências.
-- [`docs/enunciado-resumo.md`](docs/enunciado-resumo.md): requisitos, critérios e checklist de entrega.
-- [`docs/plano-execucao.md`](docs/plano-execucao.md): ordem de implementação e estado.
 - [`USO_IA.md`](USO_IA.md): registro obrigatório de uso de IA.
