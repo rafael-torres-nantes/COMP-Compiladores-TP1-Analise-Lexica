@@ -320,7 +320,12 @@ ALFANUM     [a-zA-Z0-9_]
   * Casa com qualquer caractere que nao tenha correspondido a nenhuma
   * regra anterior. Deve ser SEMPRE a ultima regra do arquivo. */
 .                   {
-                        microc_yylval.error_msg = strdup(yytext);
+                        /* buffer estatico: strdup aqui vazava um bloco por
+                         * caractere invalido, que ninguem liberava */
+                        static char invalido[2];
+                        invalido[0] = yytext[0];
+                        invalido[1] = '\0';
+                        microc_yylval.error_msg = invalido;
                         return UNDEF;
                     }
 
