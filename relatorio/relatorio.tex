@@ -171,7 +171,6 @@ Verificação & Resultado & \\
 \midrule
 \texttt{make} & compila sem avisos de compilador; apenas o diagnóstico exigido do \emph{else} pendente & saída 0 \\
 \texttt{make test} & testes do professor e do grupo & 35 de 35 \\
-\texttt{sh testes/prova\_de\_fogo.sh} & bordas, regex diferencial, mutação, entradas hostis & 51 de 51 \\
 Parser da Micro C & compilado com \texttt{gcc -ansi -pedantic -Wall -Wextra} & sem avisos \\
 \bottomrule
 \end{tabular}
@@ -220,17 +219,14 @@ Gramática & Aceitos & Rejeitados \\
 \end{tabular}
 \end{center}
 
-\subsection{Prova de fogo}
+\subsection{Robustez}
 
-O \emph{script} \texttt{testes/prova\_de\_fogo.sh} (51 casos) vai além do esperado. O critério
-comum é que o gerador e os analisadores terminem sempre com 0 ou 1 (2 para arquivo inexistente),
-sem travar nem cair, e que todo código gerado compile com \texttt{-Werror}. As frentes são:
-14 gramáticas no limite da notação (arquivo vazio, literal ou regex sem fechar, regex que aceita
-vazio, nome de 600 caracteres, nomes reservados do C, CRLF, literais com \texttt{*/}); 12
-expressões regulares comparadas com \texttt{grep -Ex} em todas as 39 cadeias de 1 a 3 letras
-sobre \{a, b, c\}; 25 mutações de um caractere nas gramáticas \texttt{expr}, \texttt{comandos} e
-\texttt{json}; e entradas hostis (bytes aleatórios, 3000 parênteses aninhados, lista JSON com
-50000 números). Esse \emph{script} encontrou o defeito do literal com \texttt{*/} descrito acima.
+Além dos 35 testes, o gerador e os analisadores gerados foram exercitados com entradas no limite:
+gramáticas vazias, literais ou expressões regulares sem fechar, nomes reservados do C, arquivos
+com CRLF, parênteses aninhados em excesso e bytes aleatórios. O critério é que o gerador e os
+analisadores terminem sempre com 0 ou 1 (2 para arquivo inexistente), sem travar nem cair, e que
+todo código gerado compile com 	exttt{-Werror}. Esse exercício encontrou o defeito do literal
+com 	exttt{*/} descrito acima.
 
 \section{Limitações}
 
@@ -260,7 +256,6 @@ do MSYS2); sem isso o \texttt{make} não é encontrado. Na pasta do projeto:
 \begin{lstlisting}
 make                          # compila ./gerador e build/microc/parser_microc
 make test                     # testes de testes/ (35)
-sh testes/prova_de_fogo.sh    # bordas, regex, mutacao, entradas hostis (51)
 make clean
 \end{lstlisting}
 
