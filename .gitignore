@@ -1,5 +1,31 @@
+# Build do TP2 (gerador) e do TP1 (scanner Flex)
 build/
 gerador
 gerador.exe
 *.o
+*.exe
+a.out
 lex.yy.c
+
+# Auxiliares do LaTeX (o relatorio.pdf entregue continua versionado)
+relatorio/*.aux
+relatorio/*.log
+relatorio/*.out
+relatorio/*.toc
+
+# Material da disciplina em PDF (enunciado, slides, plano de ensino): nao e produto do trabalho
+/*.pdf
+
+# Notas locais de decisao do TP1, fora da entrega
+docs/gitignore.md
+docs/regras-de-trabalho.md
+
+# Configuracao de assistente de IA fica so na maquina local
+CLAUDE.md
+.claude/
+AGENTS.md
+GEMINI.md
+
+# Material interno (fica so no disco)
+docs/
+testes/prova_de_fogo.sh
