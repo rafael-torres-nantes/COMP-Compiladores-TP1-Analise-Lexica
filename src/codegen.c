@@ -331,11 +331,6 @@ static void gen_expr(Emissor *em, const Gramatica *g, const Expr *e)
 /* Expressoes regulares de TOKENS (modo proprio)                      */
 /* ------------------------------------------------------------------ */
 
-/* Emite a funcao
- *     static size_t <nome>(const char *s)
- * que devolve o comprimento do MAIOR prefixo de s reconhecido pela
- * expressao regular, ou 0 se nenhum prefixo for reconhecido.
- * Retorna 0 se a expressao for valida (senao reporte com diag_erro). */
 /* Caractere como constante C: 'a', '\n', ou o codigo para os nao imprimiveis. */
 static void emitir_caractere(FILE *f, int c)
 {
@@ -381,7 +376,12 @@ static void emitir_condicao(FILE *f, const Afd *a, int estado, int destino)
     }
 }
 
-/* O automato minimo vem de automato.c (Thompson, subconjuntos, Moore). */
+/* Emite a funcao
+ *     static size_t <nome>(const char *s)
+ * que devolve o comprimento do MAIOR prefixo de s reconhecido pela
+ * expressao regular, ou 0 se nenhum prefixo for reconhecido.
+ * O automato minimo vem de automato.c (Thompson, subconjuntos, Moore).
+ * Retorna 0 se a expressao for valida (senao reporta com diag_erro). */
 static int gen_casamento_regex(FILE *f, const char *nome, const char *regex)
 {
     char mensagem[128];
@@ -717,7 +717,7 @@ static void gerar_posicao_e_avancar(FILE *f, int microc)
 
 static int gerar_lexico(FILE *f, const Gramatica *g)
 {
-    int i, nlit = 0, erros = 0;
+    int i, erros = 0;
     char nome[300];
 
     emit_linhas(f, rt_lexico_estado);
@@ -731,10 +731,8 @@ static int gerar_lexico(FILE *f, const Gramatica *g)
             erros++;
     }
     for (i = 1; i < g->nterms; i++) {
-        if (g->terms[i].literal) {
-            nlit++;
+        if (g->terms[i].literal)
             continue;
-        }
         sprintf(nome, "casa_%.250s", g->terms[i].nome_c);
         fprintf(f, "/* %s: ", g->terms[i].nome);
         emitir_comentario(f, g->terms[i].regex ? g->terms[i].regex : "");
@@ -787,7 +785,6 @@ static int gerar_lexico(FILE *f, const Gramatica *g)
     fputs("    n = melhor < sizeof t.lexema ? melhor : sizeof t.lexema - 1;\n", f);
     fputs("    memcpy(t.lexema, fonte + pos, n);\n    t.lexema[n] = '\\0';\n", f);
     fputs("    t.tipo = tipo;\n    consumir(melhor);\n    return t;\n}\n\n", f);
-    (void) nlit;
     return erros;
 }
 
@@ -838,9 +835,20 @@ static void gerar_procedimentos(FILE *f, const Gramatica *g, const OpcoesGeracao
 static void gerar_main(FILE *f, const Gramatica *g, const OpcoesGeracao *op)
 {
     fputs("/* ---- programa principal ---- */\n\n", f);
+    fputs("static FILE *entrada = NULL;   /* programa de entrada */\n\n", f);
+    fputs("/* Libera tudo o que ainda estiver aberto ou alocado. Registrada com\n"
+          " * atexit: roda tanto na aceitacao quanto em qualquer exit de erro. */\n", f);
+    fputs("static void limpar(void)\n{\n", f);
+    fputs("    if (arquivo_tokens != NULL)\n        fclose(arquivo_tokens);\n", f);
+    if (op->microc)
+        fputs("    if (arquivo_tokens == NULL && entrada != NULL)\n"
+              "        scanner_finalizar();\n", f);
+    else
+        fputs("    free(fonte);\n", f);
+    fputs("    if (entrada != NULL && entrada != stdin)\n        fclose(entrada);\n}\n\n", f);
     fputs("int main(int argc, char **argv)\n{\n", f);
-    fputs("    int i, fim[2];\n    const char *arquivo = NULL, *tokens = NULL;\n", f);
-    fputs("    FILE *entrada = stdin;\n\n", f);
+    fputs("    int i, fim[2];\n    const char *arquivo = NULL, *tokens = NULL;\n\n", f);
+    fputs("    atexit(limpar);\n", f);
     fputs("    for (i = 1; i < argc; i++) {\n", f);
     fputs("        if (strcmp(argv[i], \"--tree\") == 0) {\n", f);
     fputs("            imprimir_arvore = 1;\n", f);
@@ -859,6 +867,7 @@ static void gerar_main(FILE *f, const Gramatica *g, const OpcoesGeracao *op)
     fputs("        if (arquivo_tokens == NULL) {\n", f);
     fputs("            fprintf(stderr, \"nao foi possivel abrir %s\\n\", tokens);\n", f);
     fputs("            return 2;\n        }\n    } else {\n", f);
+    fputs("        entrada = stdin;\n", f);
     fputs("        if (arquivo != NULL && (entrada = fopen(arquivo, \"r\")) == NULL) {\n", f);
     fputs("            fprintf(stderr, \"nao foi possivel abrir %s\\n\", arquivo);\n", f);
     fputs("            return 2;\n        }\n", f);
@@ -872,14 +881,7 @@ static void gerar_main(FILE *f, const Gramatica *g, const OpcoesGeracao *op)
     fputs("    if (tok.tipo != TOKEN_FIM) {\n", f);
     fputs("        fim[0] = TOKEN_FIM;\n        fim[1] = -1;\n", f);
     fputs("        erro_sintatico(fim);\n    }\n", f);
-    fputs("    printf(\"entrada aceita\\n\");\n\n", f);
-    fputs("    if (arquivo_tokens != NULL) {\n        fclose(arquivo_tokens);\n", f);
-    fputs("    } else {\n", f);
-    if (op->microc)
-        fputs("        scanner_finalizar();\n", f);
-    else
-        fputs("        free(fonte);\n", f);
-    fputs("        if (entrada != stdin)\n            fclose(entrada);\n    }\n", f);
+    fputs("    printf(\"entrada aceita\\n\");\n", f);
     fputs("    return 0;\n}\n", f);
 }
 
