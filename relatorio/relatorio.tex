@@ -337,7 +337,11 @@ um espaço no meio, o que evita erro de compilação e o aviso \texttt{-Wcomment
 
 \paragraph{Mensagens.} Todo diagnóstico segue o formato \texttt{arquivo:linha:coluna: erro:} ou
 \texttt{aviso:}. Erro encerra com código 1, antes de qualquer geração; aviso não impede a
-geração. Arquivo inexistente devolve 2.
+geração. Arquivo de gramática inexistente também encerra o gerador com código 1; o analisador
+gerado devolve 2 quando não consegue abrir o programa de entrada. Expressões regulares de
+\texttt{TOKENS} e \texttt{SKIP} são compiladas já na etapa 2, de modo que uma regex inválida
+(intervalo invertido, ou que aceita a cadeia vazia) é erro com posição e não deixa arquivo
+gerado, mesmo quando o gerador roda só com \texttt{--sets}.
 
 \section{Testes e resultados}
 

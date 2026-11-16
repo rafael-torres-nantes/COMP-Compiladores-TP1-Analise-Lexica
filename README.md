@@ -139,7 +139,7 @@ void parse_term(void)
 }
 ```
 
-Diagnósticos da gramática seguem o formato `arquivo:linha:coluna: erro:` ou `aviso:`. Um erro encerra com código 1 antes de qualquer arquivo ser escrito; um aviso não impede a geração; arquivo inexistente devolve 2.
+Diagnósticos da gramática seguem o formato `arquivo:linha:coluna: erro:` ou `aviso:`. Um erro encerra com código 1 antes de qualquer arquivo ser escrito; um aviso não impede a geração. Arquivo de gramática inexistente também encerra o gerador com código 1; já o analisador gerado devolve 2 quando não consegue abrir o programa de entrada.
 
 #### Revisão final do TP2
 
