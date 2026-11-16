@@ -25,7 +25,7 @@ uso_ia: sim
 
 Repositório de entrega dos Trabalhos Práticos da disciplina **Compiladores I (FACOM/UFMS, 2026/2)**. O **TP1** é um analisador léxico de Micro C em **Flex**; o **TP2** é um gerador que lê uma gramática em **EBNF** e escreve, em **ANSI C**, um analisador sintático descendente recursivo para ela. O layout é o do TP2: a raiz do repositório é a raiz do projeto do gerador, e o TP1 é o módulo `microc/`, que o analisador gerado usa como fonte de tokens.
 
-> Status: todos os `TODO(aluno)` estão implementados, `make` compila sem avisos, `make test` passa 35 de 35.
+> Status (16/11/2026, cópia limpa do repositório, Ubuntu 24.04 e Windows/MSYS2): todos os `TODO(aluno)` estão implementados, `make` compila sem avisos, `make test` passa 35 de 35, o código gerado compila sem avisos com `gcc -ansi -pedantic -Wall -Wextra` e o `valgrind --leak-check=full` não acusa nenhum erro nem vazamento em 60 execuções.
 
 ## 🛠️ Tecnologias/Ferramentas utilizadas
 
@@ -41,7 +41,7 @@ Repositório de entrega dos Trabalhos Práticos da disciplina **Compiladores I (
 | [`microc/`](microc/) | **TP1** | Analisador léxico de Micro C em **Flex** (`microc.flex`, `tokens.h`) mais o adaptador `scanner.c`/`scanner.h` que o expõe como função para o parser gerado |
 | [`src/`](src/) | **TP2** | Gerador de analisadores sintáticos descendentes recursivos a partir de EBNF, em **ANSI C (C89/C90)** |
 | [`testes/`](testes/) | TP2 | Gramáticas, programas de entrada, saídas esperadas, `executar.sh` |
-| [`relatorio/`](relatorio/) | TP2 | Relatório em LaTeX (`relatorio.tex`) e o PDF |
+| [`relatorio/`](relatorio/) | TP1 e TP2 | Relatório em LaTeX (`relatorio.tex`) e o PDF, com o léxico, as mudanças do TP1 e o gerador |
 
 ### 🔤 Parte 1 - TP1: analisador léxico
 
@@ -54,7 +54,34 @@ gcc -w -DMICROC_TESTE_LEXICO -Imicroc -o build/lexer build/lexer.c
 ./build/lexer testes/programas/microc/soma.mc
 ```
 
-Cada token reconhecido é impresso com tipo, lexema e linha (`Token: tipo = INT lexema = 'int' linha = 1`); erros léxicos vão para `stderr` como `ERRO LEXICO (linha N): <mensagem>`. Itens do TP1: palavras reservadas, constantes de caractere e de string com escapes, operadores com prefixo compartilhado (`!=`, `<=`, `>=`, `&&`, `||`), inteiros negativos e regra final de erro para qualquer entrada.
+Cada token reconhecido é impresso com tipo, lexema e linha (`Token: tipo = INT lexema = 'int' linha = 1`); erros léxicos vão para `stderr` como `ERRO LEXICO (linha N): <mensagem>`.
+
+O que o scanner reconhece (`microc/microc.flex`, tokens em `microc/tokens.h`, seção 2.3.1 do livro-texto):
+
+| Classe | Tokens |
+|--------|--------|
+| Controle | `UNDEF` (erro léxico), `ID`, `END_OF_FILE` |
+| Constantes | `INTEGERCONST` (inclusive negativas, `-{DIGIT}+`), `CHARCONST`, `STRINGCONST` (com escapes `\.`) |
+| Operadores | `PLUS` `MINUS` `MUL` `DIV` `MOD` · `EQ` `NEQ` `LT` `GT` `LEQ` `GEQ` `AND` `OR` `NOT` |
+| Pontuação | `ASSIGN` `SEMICOLON` `COMMA` · parênteses, chaves e colchetes |
+| Reservadas | `MAIN` `IF` `ELSE` `FOR` `RETURN` `INT` `CHAR` `PRINT` |
+
+- **Maior casamento:** os operadores de dois caracteres (`==`, `!=`, `<=`, `>=`, `&&`, `||`) vêm antes dos de um caractere com o mesmo prefixo.
+- **Reservadas:** um identificador casa `{LETRA}{ALFANUM}*` e só depois é comparado com as palavras reservadas, sem uma regra por palavra.
+- **Comentários:** `//` vai até o fim da linha; `/* ... */` usa a condição de início `COMMENT` e continua contando linhas.
+- **Lexemas:** identificadores e constantes vão para uma tabela de strings; o token carrega tipo, lexema e linha.
+
+Erros léxicos (todos devolvem `UNDEF` com a mensagem em `error_msg`; a regra final `.` garante que toda entrada casa alguma regra):
+
+| Situação | Mensagem |
+|----------|----------|
+| Fim do arquivo dentro de `/* ... */` | `EOF em comentario` |
+| `*/` fora de um comentário | `Comentario nao iniciado` |
+| Caractere vazio, sem fechar ou com mais de um símbolo | `Constante de caractere invalida` |
+| String com caractere nulo | `String contem caractere nulo` |
+| Quebra de linha antes de fechar a string | `String nao terminada` |
+| Fim do arquivo antes de fechar a string | `EOF em string` |
+| Caractere fora do alfabeto | o próprio caractere |
 
 #### Correções feitas desde o TP1
 
@@ -65,6 +92,7 @@ Diferenças entre o `microc.flex` da entrega original do TP1 (no histórico do r
 - `main()` de teste do léxico só compila com `-DMICROC_TESTE_LEXICO`, para não colidir com o `main` do parser.
 - `yywrap()` removida (substituída por `noyywrap`) e `microc_libera_tabela()` nova, que libera a tabela de strings e é chamada por `scanner_finalizar`.
 - Comentário de cabeçalho atualizado para registrar a adaptação.
+- Adaptador novo `microc/scanner.c`/`scanner.h`: `scanner_iniciar`, `proximo_token` e `scanner_finalizar`. `proximo_token` monta o `Token` com o lexema da tabela de strings e, para `UNDEF`, com a mensagem de erro do TP1.
 
 ### 🧠 Parte 2 - TP2: gerador de analisadores sintáticos
 
@@ -76,13 +104,58 @@ gcc -ansi -pedantic -Wall -Wextra -o build/expr_bin build/expr.c
 
 Opções: `-o prefixo` grava `prefixo.c` e `prefixo.h`, `--sets` imprime anulável, FIRST e FOLLOW, `--debug` imprime a gramática lida, `--tree` inclui a árvore de derivação e `--scanner microc` usa o scanner do TP1 (`TOKENS EXTERN "tokens.h" ;`).
 
+O que foi implementado em cada `TODO(aluno)` do código-base:
+
+| Arquivo | O que faz |
+|---------|-----------|
+| `src/ebnf_parser.c` | `parse_expr`, `parse_seq` e `parse_fator`: descendente recursivo da própria notação EBNF, que monta a árvore `Expr` (`E_TERM`, `E_NAOTERM`, `E_SEQ`, `E_ALT`, `E_OPC`, `E_REP`, `E_VAZIO`) de `gramatica.h` |
+| `src/verificacao.c` | Inalcançáveis (aviso, busca a partir do símbolo inicial), improdutivos (erro, ponto fixo) e recursão à esquerda direta, indireta e por prefixo anulável (erro, fecho transitivo de Warshall) |
+| `src/conjuntos.c` | Anulável, FIRST e FOLLOW por ponto fixo, para cada não terminal e cada subexpressão, em vetores de bits (`bitset.c`); no corpo de `{ a }`, `FOLLOW(a)` recebe `FIRST(a)` |
+| `src/ll1.c` | Erros: FIRST de alternativas não disjuntos, mais de uma alternativa anulável, FOLLOW de alternativa anulável cruzando o FIRST de outra, corpo anulável em `[ ]` ou `{ }`. Aviso: FIRST ∩ FOLLOW em `[ ]` ou `{ }`, resolvido de forma gulosa |
+| `src/codegen.c` | Uma função `parse_X()` por regra: sequência em ordem, alternativa em `if / else if`, `[ ]` em `if`, `{ }` em `while`; conjuntos de decisão em `static const int conj_N[]`; suporte a `--tree` e `--tokens`; `limpar()` registrada com `atexit` |
+| `src/automato.c` | Léxico próprio: regex → AFN (Thompson) → AFD (subconjuntos) → AFD mínimo (Moore), emitido como `switch` por estado; vence o maior prefixo e, em empate, o literal |
+| `src/microc_mapa.c` | Lê o `enum TokenType` do `tokens.h` do TP1 para mapear os terminais da gramática de Micro C |
+| `microc/scanner.c` | Adaptador do scanner do TP1 (ver [Correções feitas desde o TP1](#correções-feitas-desde-o-tp1)) |
+
+Exemplo do código gerado para `term = factor { ( "*" | "/" ) factor } ;`:
+
+```c
+/* term = factor { ( '*' | '/' ) factor } ; */
+void parse_term(void)
+{
+    arvore_entra("term");
+    parse_factor();
+    while (tok.tipo == T_VEZES || tok.tipo == T_BARRA) {
+        if (tok.tipo == T_VEZES) {
+            match(T_VEZES);
+        } else if (tok.tipo == T_BARRA) {
+            match(T_BARRA);
+        } else {
+            erro_sintatico(conj_1);
+        }
+        parse_factor();
+    }
+    arvore_sai();
+}
+```
+
+Diagnósticos da gramática seguem o formato `arquivo:linha:coluna: erro:` ou `aviso:`. Um erro encerra com código 1 antes de qualquer arquivo ser escrito; um aviso não impede a geração; arquivo inexistente devolve 2.
+
+#### Revisão final do TP2
+
+Depois de os 35 testes passarem, a revisão do código função por função e os testes de robustez (gramáticas vazias, regex sem fechar, CRLF, aninhamento excessivo, bytes aleatórios) trouxeram três mudanças:
+
+- **Memória do analisador gerado:** em entrada rejeitada, o `exit(1)` deixava arquivos abertos e o buffer ou o scanner alocados. Agora `limpar()` roda via `atexit` em qualquer saída.
+- **Código redundante:** trechos repetidos em `automato.c`, `conjuntos.c` e `verificacao.c` foram removidos (41 linhas a menos, 16 a mais), sem mudar nenhuma saída.
+- **Literais com `*/`:** um literal com `*/` ou `/*` quebrava o comentário C que documenta a regra. O gerador passou a emitir esses pares com um espaço no meio.
+
 ## 🔀 Arquitetura da aplicação
 
 O gerador roda em cinco etapas, na ordem de `src/main.c`. Um erro em qualquer etapa interrompe a geração e nenhum arquivo é escrito:
 
 1. **Leitura da EBNF** (`ebnf_lexer.c`, `ebnf_parser.c`): monta a árvore `Expr` descrita em `gramatica.h`.
 2. **Verificação semântica** (`verificacao.c`): não definidos, inalcançáveis e improdutivos.
-3. **Conjuntos** (`conjuntos.c`): anulável, recursão à esquerda, FIRST e FOLLOW.
+3. **Conjuntos** (`conjuntos.c`): anulável, depois a recursão à esquerda (`verif_recursao_esquerda`, em `verificacao.c`, que depende do anulável), depois FIRST e FOLLOW.
 4. **Verificação LL(1)** (`ll1.c`): conflitos FIRST∩FIRST e FIRST∩FOLLOW.
 5. **Geração de código** (`codegen.c`): uma função C por regra, com o léxico de cada regex vindo de `automato.c`.
 
@@ -271,6 +344,11 @@ make test
 ```
 35 de 35 testes passaram
 ```
+
+O `make test` roda o gerador com `--sets` em cada uma das 10 gramáticas e cada analisador em cada um dos 25 programas, e compara a saída, inclusive a linha final `status 0` ou `status 1`, com o esperado. Fora da suíte, também foram conferidos:
+
+- **Memória:** `valgrind --leak-check=full` no gerador e nos analisadores de `expr`, `json`, `comandos` e Micro C, com e sem `--tree`. Foram 60 execuções, sem nenhum erro nem vazamento.
+- **Modo `--tokens`:** nos 6 programas de Micro C, a saída lendo o arquivo de tokens é igual à leitura direta, inclusive o código de saída.
 
 ## 🕵️ Dificuldades Encontradas
 
