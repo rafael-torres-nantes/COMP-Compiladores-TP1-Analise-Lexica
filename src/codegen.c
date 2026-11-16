@@ -166,8 +166,15 @@ static void nomear_terminais(Gramatica *g, int microc)
             if (buf[0] == '\0')
                 sprintf(buf, "T_LIT_%d", i);
         }
-        if (nome_em_uso(g, i, buf))
-            sprintf(buf + strlen(buf), "_%d", i);
+        if (nome_em_uso(g, i, buf)) {
+            /* repete ate achar um nome livre: o sufixo tambem pode colidir
+             * (ID, ID_3 e o literal "id" levariam dois terminais a T_ID_3) */
+            size_t base = strlen(buf);
+            int sufixo = i;
+            do
+                sprintf(buf + base, "_%d", sufixo++);
+            while (nome_em_uso(g, i, buf));
+        }
         t->nome_c = xstrdup(buf);
     }
 }
@@ -441,6 +448,7 @@ static void gen_token_de_arquivo(FILE *f, int microc)
         "static Token token_de_arquivo(void)",
         "{",
         "    static int linha_arquivo = 0;",
+        "    static int ultima_linha = 0; /* linha do fim de arquivo */",
         "    char buf[512], *ini, *fim, *p;",
         "    int tipo, num_linha;",
         "    size_t n;",
@@ -469,9 +477,11 @@ static void gen_token_de_arquivo(FILE *f, int microc)
         "        memcpy(t.lexema, ini + 1, n);",
         "        t.lexema[n] = '\\0';",
         "        t.linha = num_linha;",
+        "        ultima_linha = num_linha;",
         "        return t;",
         "    }",
         "    t.tipo = TOKEN_FIM;",
+        "    t.linha = ultima_linha;",
         "    return t;",
         "}",
         "",
@@ -562,7 +572,7 @@ static const char *const rt_primitivas[] = {
     "    }",
     "    if (SUPORTE_ARVORE && imprimir_arvore) {",
     "        recuo();",
-    "        if (nome_token(tok.tipo)[0] == '\\'')",
+    "        if (nome_token(tok.tipo)[0] == '\\'' || nome_token(tok.tipo)[0] == '\"')",
     "            printf(\"%s\\n\", nome_token(tok.tipo));",
     "        else",
     "            printf(\"%s '%s'\\n\", nome_token(tok.tipo), tok.lexema);",
@@ -699,7 +709,11 @@ static void gerar_posicao_e_avancar(FILE *f, int microc)
     if (microc)
         fputs("    fprintf(stderr, \"linha %d: \", tok.linha);\n", f);
     else
-        fputs("    fprintf(stderr, \"linha %d, coluna %d: \", tok.linha, tok.coluna);\n", f);
+        /* o arquivo de tokens so traz a linha: sem coluna, como no modo Micro C */
+        fputs("    if (arquivo_tokens != NULL)\n"
+              "        fprintf(stderr, \"linha %d: \", tok.linha);\n"
+              "    else\n"
+              "        fprintf(stderr, \"linha %d, coluna %d: \", tok.linha, tok.coluna);\n", f);
     fputs("}\n\n", f);
 
     fputs("/* Le o proximo token para tok. */\nvoid avancar(void)\n{\n", f);
