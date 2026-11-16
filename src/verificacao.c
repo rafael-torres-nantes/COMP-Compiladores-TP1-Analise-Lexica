@@ -65,7 +65,7 @@ static int verif_terminais(Gramatica *g, int modo_microc)
 }
 
 /* ------------------------------------------------------------------ */
-/* A implementar                                                      */
+/* Alcancabilidade, produtividade e recursao a esquerda               */
 /* ------------------------------------------------------------------ */
 
 /* Marca, em profundidade, cada nao terminal que aparece em e. A regra de
@@ -83,8 +83,8 @@ static void marcar_alcancaveis(const Gramatica *g, const Expr *e, char *marcado)
         marcar_alcancaveis(g, e->filhos[i], marcado);
 }
 
-/* So emite avisos: devolve sempre 0 erros. */
-static int verif_inalcancaveis(Gramatica *g)
+/* So emite avisos. */
+static void verif_inalcancaveis(Gramatica *g)
 {
     int i;
     char *marcado = (char *) xcalloc((size_t) g->nnts, 1);
@@ -96,7 +96,6 @@ static int verif_inalcancaveis(Gramatica *g)
             diag_aviso(g->nts[i].linha, g->nts[i].coluna, "nao terminal %s inalcancavel a partir de %s",
                        g->nts[i].nome, g->nts[g->inicial].nome);
     free(marcado);
-    return 0;
 }
 
 static int produtiva(const Expr *e, const char *produtivo)
@@ -201,7 +200,7 @@ int verif_basica(Gramatica *g, int modo_microc)
     }
     erros += verif_indefinidos(g);
     erros += verif_terminais(g, modo_microc);
-    erros += verif_inalcancaveis(g);
+    verif_inalcancaveis(g);
     if (erros == 0)
         erros += verif_improdutivos(g);
     return erros;

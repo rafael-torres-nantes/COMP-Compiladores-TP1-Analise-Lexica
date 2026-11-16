@@ -360,20 +360,17 @@ static Afd *subconjuntos(const Afn *a, int inicio, int final)
  * lugar nenhum). Repete-se o refinamento ate nada mudar.
  * ------------------------------------------------------------------- */
 
-static int destino_bloco(const Afd *a, const int *bloco, int estado, int c)
-{
-    int t = a->transicao[estado * ALFABETO + c];
-    return t < 0 ? -1 : bloco[t];
-}
-
 static int equivalentes(const Afd *a, const int *bloco, int p, int q)
 {
     int c;
     if (bloco[p] != bloco[q])
         return 0;
-    for (c = 1; c < ALFABETO; c++)
-        if (destino_bloco(a, bloco, p, c) != destino_bloco(a, bloco, q, c))
+    for (c = 1; c < ALFABETO; c++) {
+        int tp = a->transicao[p * ALFABETO + c];
+        int tq = a->transicao[q * ALFABETO + c];
+        if ((tp < 0 ? -1 : bloco[tp]) != (tq < 0 ? -1 : bloco[tq]))
             return 0;
+    }
     return 1;
 }
 
@@ -382,9 +379,7 @@ static Afd *minimiza(Afd *a)
     int n = a->n_estados, i, j, n_blocos = 0, anterior = -1;
     int *bloco = (int *) xcalloc(1, (size_t) n * sizeof(int));
     int *novo = (int *) xcalloc(1, (size_t) n * sizeof(int));
-    int *ordem = (int *) xcalloc(1, (size_t) n * sizeof(int));
-    int *fila = (int *) xcalloc(1, (size_t) n * sizeof(int));
-    int inicio_fila = 0, fim_fila = 0, c;
+    int c;
     Afd *m;
 
     for (i = 0; i < n; i++)
@@ -409,43 +404,24 @@ static Afd *minimiza(Afd *a)
         memcpy(bloco, novo, (size_t) n * sizeof(int));
     }
 
-    /* Renumera os blocos em ordem de visita a partir do inicial, para que
-     * o estado 0 do automato minimo seja sempre o inicial. */
-    for (i = 0; i < n; i++)
-        ordem[i] = -1;
-    n_blocos = 0;
-    ordem[bloco[0]] = n_blocos++;
-    fila[fim_fila++] = 0;
-    while (inicio_fila < fim_fila) {
-        int s = fila[inicio_fila++];
-        for (c = 1; c < ALFABETO; c++) {
-            int t = a->transicao[s * ALFABETO + c];
-            if (t >= 0 && ordem[bloco[t]] < 0) {
-                ordem[bloco[t]] = n_blocos++;
-                fila[fim_fila++] = t;
-            }
-        }
-    }
-
+    /* O estado 0 e o primeiro a ser numerado no refinamento, entao cai no
+     * bloco 0: o estado 0 do automato minimo continua sendo o inicial. Os
+     * blocos sao contiguos (0..n_blocos-1) e todo estado do AFD e alcancavel. */
     m = (Afd *) xcalloc(1, sizeof(Afd));
     m->n_estados = n_blocos;
     m->transicao = (int *) xcalloc(1, (size_t) n_blocos * ALFABETO * sizeof(int));
     m->final = (char *) xcalloc(1, (size_t) n_blocos);
     for (i = 0; i < n; i++) {
-        int b = ordem[bloco[i]];
-        if (b < 0)
-            continue;
+        int b = bloco[i];
         m->final[b] = a->final[i];
         for (c = 0; c < ALFABETO; c++) {
             int t = a->transicao[i * ALFABETO + c];
-            m->transicao[b * ALFABETO + c] = t < 0 ? -1 : ordem[bloco[t]];
+            m->transicao[b * ALFABETO + c] = t < 0 ? -1 : bloco[t];
         }
     }
 
     free(bloco);
     free(novo);
-    free(ordem);
-    free(fila);
     afd_libera(a);
     return m;
 }

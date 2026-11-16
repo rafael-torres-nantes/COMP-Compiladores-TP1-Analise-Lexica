@@ -59,7 +59,7 @@ void conj_imprimir(FILE *f, const Gramatica *g)
 }
 
 /* ------------------------------------------------------------------ */
-/* A implementar                                                      */
+/* Calculo de ANULAVEL, FIRST e FOLLOW                                */
 /* ------------------------------------------------------------------ */
 
 /* Os tres calculos sao pontos fixos: cada funcao *_expr faz uma passada
