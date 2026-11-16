@@ -20,12 +20,6 @@ relatorio/*.toc
 docs/gitignore.md
 docs/regras-de-trabalho.md
 
-# Configuracao de assistente de IA fica so na maquina local
-CLAUDE.md
-.claude/
-AGENTS.md
-GEMINI.md
-
 # Material interno (fica so no disco)
 docs/
 testes/prova_de_fogo.sh

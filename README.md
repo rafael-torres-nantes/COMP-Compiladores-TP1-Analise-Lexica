@@ -170,7 +170,6 @@ No modo Micro C, o analisador gerado não tem léxico próprio: ele pede cada to
 ├── src/                    # TP2: código do gerador
 ├── testes/                 # TP2: gramáticas, entradas, esperados, executar.sh
 ├── relatorio/              # TP2: relatório LaTeX e PDF
-├── USO_IA.md               # registro obrigatório de uso de IA
 └── README.md
 ```
 
@@ -367,6 +366,5 @@ O `make test` roda o gerador com `--sets` em cada uma das 10 gramáticas e cada 
 - **Curso:** Compiladores I
 - **Instituição:** FACOM/UFMS
 - **Trabalhos:** TP1 — Análise Léxica para Micro C · TP2 — Gerador de Analisadores Sintáticos a partir de EBNF
-- **Uso de IA:** registrado em [`USO_IA.md`](USO_IA.md), obrigatório pelo enunciado.
 
 A submissão deve seguir as instruções específicas informadas pelo professor no AVA (Moodle), dentro do prazo estabelecido no cronograma da disciplina.

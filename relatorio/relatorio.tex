@@ -466,12 +466,6 @@ testes foram repetidos depois de cada mudança.
   só roda no Linux.
 \end{itemize}
 
-\section{Uso de IA}
-
-O código do gerador foi escrito pelos autores. Uma ferramenta de IA (Claude, da Anthropic) foi
-usada como apoio na fase de testes -- sugestão de casos e conferência dos resultados -- e na
-redação e revisão deste relatório.
-
 \section{Como compilar e executar}
 
 São necessários \texttt{gcc}, \texttt{make}, \texttt{flex} e \texttt{diff}. No Windows, o
@@ -496,7 +490,7 @@ gcc -ansi -pedantic -Wall -Wextra -o build/expr_bin build/expr.c
 As opções do gerador são: \texttt{-o prefixo} (grava \texttt{prefixo.c} e \texttt{prefixo.h}),
 \texttt{--sets} (imprime anulável, FIRST e FOLLOW), \texttt{--debug} (imprime a gramática lida),
 \texttt{--tree} (inclui a impressão da árvore de derivação) e \texttt{--scanner microc} (usa o
-scanner do TP1). O código, o scanner adaptado em \texttt{microc/}, os testes e o registro de uso
-de IA (\texttt{USO\_IA.md}) estão no repositório do trabalho.
+scanner do TP1). O código, o scanner adaptado em \texttt{microc/} e os testes estão no
+repositório do trabalho.
 
 \end{document}
