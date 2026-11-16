@@ -176,13 +176,11 @@ ALFANUM     [a-zA-Z0-9_]
                     }
 
  /* --- Palavras reservadas e identificadores ----------------------------
-  * atualmente TODA sequencia de letras/underscore e
-  * devolvida como ID. Voce deve comparar o lexema reconhecido com cada
-  * palavra reservada da linguagem (main, if, else, for, return, int,
-  * char, print) e devolver o token especifico quando houver
-  * correspondencia. Use strcmp(), conforme discutido em aula, ou uma
-  * tabela hash caso queira ir alem do exigido. Nao esqueca de chamar
-  * guarda_lexema() (ou equivalente) quando o token for de fato ID. */
+  * O lexema reconhecido e comparado com cada palavra reservada da
+  * linguagem (main, if, else, for, return, int, char, print) via
+  * strcmp(); havendo correspondencia, devolve o token especifico.
+  * Caso contrario, o lexema e guardado na tabela de strings e o token
+  * devolvido e ID. */
 {LETRA}{ALFANUM}*   {
                         /* palavras reservadas */
                         if (strcmp(yytext, "main")   == 0) return MAIN;

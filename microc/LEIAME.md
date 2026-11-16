@@ -2,16 +2,12 @@
 
 Aqui fica o scanner de Micro C do TP1, convertido em função para o analisador gerado com `--scanner microc` (seção 3.1 do enunciado).
 
-Já fornecidos:
+Arquivos desta pasta:
 
 - `scanner.h`: interface usada pelo analisador gerado (`scanner_iniciar`, `proximo_token`, `scanner_finalizar`).
-- `scanner.c`: adaptador entre `microc_yylex()` e `Token`. Procure os `TODO(aluno)`.
-
-Copie do seu TP1:
-
-- `microc.flex`, com `%option prefix="microc_yy" noyywrap` e `return END_OF_FILE;` na regra `<<EOF>>`;
-- `tokens.h`, com `TokenType` e `Token` como no livro-texto (seção 2.3.1);
-- os demais arquivos `.c`/`.h` de que o scanner depende, como a tabela de strings.
+- `scanner.c`: adaptador entre `microc_yylex()` e `Token`. O lexema vem da tabela de strings e o token `UNDEF` traz a mensagem de erro do TP1.
+- `microc.flex`: o scanner do TP1, adaptado com `%option prefix="microc_yy" noyywrap` e `return END_OF_FILE;` na regra `<<EOF>>`. As diferenças em relação à entrega original (que está no histórico do git) estão na seção "Correções feitas desde o TP1" do `README.md` da raiz.
+- `tokens.h`: `TokenType` e `Token` como no livro-texto (seção 2.3.1), extraídos do `microc.flex` do TP1.
 
 O Makefile compila todos os `.c` desta pasta. O `lex.yy.c` gerado é compilado sem a exigência de ausência de avisos.
 
