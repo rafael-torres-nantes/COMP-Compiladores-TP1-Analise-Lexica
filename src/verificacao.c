@@ -17,6 +17,7 @@
 #include <string.h>
 #include "verificacao.h"
 #include "microc_mapa.h"
+#include "automato.h"
 #include "util.h"
 
 /* ------------------------------------------------------------------ */
@@ -92,7 +93,7 @@ static void verif_inalcancaveis(Gramatica *g)
     marcado[g->inicial] = 1;
     marcar_alcancaveis(g, g->nts[g->inicial].regra, marcado);
     for (i = 0; i < g->nnts; i++)
-        if (!marcado[i])
+        if (!marcado[i] && g->nts[i].regra != NULL)
             diag_aviso(g->nts[i].linha, g->nts[i].coluna, "nao terminal %s inalcancavel a partir de %s",
                        g->nts[i].nome, g->nts[g->inicial].nome);
     free(marcado);
@@ -191,6 +192,37 @@ int verif_recursao_esquerda(Gramatica *g)
     return erros;
 }
 
+/* Compila cada expressao regular de TOKENS e SKIP antes de qualquer
+ * geracao, para que uma regex invalida seja erro da etapa 2: assim nenhum
+ * arquivo e escrito e o erro aparece tambem sem -o (--sets, --debug). */
+static int verif_regex(Gramatica *g)
+{
+    int i, erros = 0;
+    char mensagem[128];
+    Afd *a;
+
+    for (i = 0; i < g->nskips; i++) {
+        a = compila_regex(g->skips[i], mensagem);
+        if (a == NULL) {
+            diag_erro(0, 0, "expressao regular /%s/ de SKIP invalida: %s", g->skips[i], mensagem);
+            erros++;
+        } else
+            afd_libera(a);
+    }
+    for (i = 1; i < g->nterms; i++) {
+        if (g->terms[i].literal || g->terms[i].regex == NULL)
+            continue;
+        a = compila_regex(g->terms[i].regex, mensagem);
+        if (a == NULL) {
+            diag_erro(g->terms[i].linha, g->terms[i].coluna, "expressao regular /%s/ de %s invalida: %s",
+                      g->terms[i].regex, g->terms[i].nome, mensagem);
+            erros++;
+        } else
+            afd_libera(a);
+    }
+    return erros;
+}
+
 int verif_basica(Gramatica *g, int modo_microc)
 {
     int erros = 0;
@@ -200,6 +232,8 @@ int verif_basica(Gramatica *g, int modo_microc)
     }
     erros += verif_indefinidos(g);
     erros += verif_terminais(g, modo_microc);
+    if (!modo_microc)
+        erros += verif_regex(g);
     verif_inalcancaveis(g);
     if (erros == 0)
         erros += verif_improdutivos(g);
