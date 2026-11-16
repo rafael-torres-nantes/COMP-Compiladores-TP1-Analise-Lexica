@@ -2,32 +2,38 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[brazil]{babel}
-\usepackage[margin=2.5cm]{geometry}
+\usepackage[margin=2.2cm]{geometry}
 \usepackage{listings}
 \usepackage{booktabs}
 \usepackage{hyperref}
+\setlength{\emergencystretch}{3em}
+\sloppy
 
-\lstset{basicstyle=\ttfamily\small, frame=single, breaklines=true, columns=fullflexible,
+\lstset{basicstyle=\ttfamily\footnotesize, frame=single, breaklines=true, columns=fullflexible,
   keepspaces=true, literate={á}{{\'a}}1 {ã}{{\~a}}1 {ç}{{\c{c}}}1 {é}{{\'e}}1 {ê}{{\^e}}1}
 \hypersetup{colorlinks=true, linkcolor=black, urlcolor=blue}
-\setlength{\parskip}{0.4em}
+\setlength{\parskip}{0.3em}
 
-\title{Trabalho Prático 2: Gerador de Analisadores Sintáticos\\Descendentes Recursivos a partir de EBNF}
+\title{Trabalhos Práticos 1 e 2: Analisador Léxico de Micro C e\\Gerador de Analisadores Sintáticos Descendentes Recursivos a partir de EBNF}
 \author{Rafael Torres Nantes \and Victor Hugo de Oliveira Arevalos}
-\date{Compiladores I -- FACOM/UFMS \\ 04 de novembro de 2026}
+\date{Compiladores I -- FACOM/UFMS \\ 16 de novembro de 2026}
 
 \begin{document}
 \maketitle
 
 \section{Introdução e objetivo}
 
-Este relatório descreve o Trabalho Prático 2 da disciplina de Compiladores I (UFMS): uma
-ferramenta escrita em C padrão ANSI (C89/C90) que lê uma gramática em EBNF e gera o código-fonte
-de um analisador sintático descendente recursivo, com um procedimento \texttt{parse\_A()} para
-cada não terminal. O gerador também verifica a gramática antes de produzir código, calcula os
-conjuntos \emph{anulável}, FIRST e FOLLOW, confirma a condição LL(1) e emite diagnósticos com
-arquivo, linha e coluna. O analisador gerado se integra ao scanner de Micro C feito no TP1, de
-modo que a gramática da Micro C do Apêndice B do enunciado pode ser processada de ponta a ponta.
+Este relatório descreve os dois trabalhos práticos da disciplina de Compiladores I (UFMS), que
+vivem no mesmo repositório porque o segundo usa o primeiro. O \textbf{TP1} é o analisador léxico
+da linguagem Micro C, escrito em Flex (pasta \texttt{microc/}). O \textbf{TP2} é uma ferramenta
+escrita em C padrão ANSI (C89/C90) que lê uma gramática em EBNF e gera o código-fonte de um
+analisador sintático descendente recursivo, com um procedimento \texttt{parse\_A()} para cada não
+terminal (pasta \texttt{src/}). O gerador verifica a gramática antes de produzir código, calcula
+os conjuntos \emph{anulável}, FIRST e FOLLOW, confirma a condição LL(1) e emite diagnósticos com
+arquivo, linha e coluna. No modo Micro C, o analisador gerado pede os tokens ao scanner do TP1,
+de modo que a gramática da Micro C do Apêndice B do enunciado é processada de ponta a ponta. A
+Seção~\ref{sec:tp1} descreve o TP1 e o que mudou nele para servir ao TP2; as seções seguintes
+descrevem o gerador.
 
 A notação de entrada tem duas seções. A seção \texttt{TOKENS} declara terminais por expressão
 regular (e \texttt{SKIP} descarta espaços e comentários); a seção \texttt{RULES} traz as
@@ -37,11 +43,95 @@ literais entre aspas e comentários \texttt{(* ... *)}. Terminais nomeados usam 
 não terminais começam com minúscula. O trabalho foi construído sobre o código-base fornecido
 pelo professor, cujos trechos deixados para o aluno foram todos implementados.
 
-\section{Arquitetura do gerador}
+\section{TP1: analisador léxico de Micro C}
+\label{sec:tp1}
+
+\subsection{Tokens e regras}
+
+O scanner está em \texttt{microc/microc.flex}, e a enumeração \texttt{TokenType} segue a seção
+2.3.1 do livro-texto, em \texttt{microc/tokens.h}:
+
+\begin{center}
+\begin{tabular}{@{}lp{10.5cm}@{}}
+\toprule
+Classe & Tokens \\
+\midrule
+Controle & \texttt{UNDEF} (erro léxico), \texttt{ID}, \texttt{END\_OF\_FILE} \\
+Constantes & \texttt{INTEGERCONST}, \texttt{CHARCONST}, \texttt{STRINGCONST} \\
+Aritméticos & \texttt{PLUS}, \texttt{MINUS}, \texttt{MUL}, \texttt{DIV}, \texttt{MOD} \\
+Relacionais e lógicos & \texttt{EQ}, \texttt{NEQ}, \texttt{LT}, \texttt{GT}, \texttt{LEQ},
+  \texttt{GEQ}, \texttt{AND}, \texttt{OR}, \texttt{NOT} \\
+Pontuação & \texttt{ASSIGN}, \texttt{SEMICOLON}, \texttt{COMMA}, parênteses, chaves e colchetes \\
+Reservadas & \texttt{MAIN}, \texttt{IF}, \texttt{ELSE}, \texttt{FOR}, \texttt{RETURN},
+  \texttt{INT}, \texttt{CHAR}, \texttt{PRINT} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+As regras aproveitam duas propriedades do Flex: vence o \textbf{maior casamento} e, em empate, a
+regra escrita primeiro. Por isso os operadores de dois caracteres (\texttt{==}, \texttt{!=},
+\texttt{<=}, \texttt{>=}, \texttt{\&\&}, \texttt{||}) vêm antes dos de um caractere com o mesmo
+prefixo. Identificadores casam \texttt{\{LETRA\}\{ALFANUM\}*} e são comparados com as palavras
+reservadas depois do casamento, o que evita uma regra por palavra. Inteiros negativos
+(\texttt{-}\{DIGIT\}+) são uma constante só. Espaços e comentários de linha (\texttt{//}) são
+descartados, e cada \texttt{\textbackslash n} incrementa o contador de linha. O comentário de
+bloco usa a condição de início \texttt{COMMENT}, que consome tudo até \texttt{*/} e continua
+contando linhas. Constantes de caractere e de string aceitam sequências de escape
+(\texttt{\textbackslash.}). Os lexemas de identificadores e constantes são guardados numa tabela
+de strings, e o token carrega tipo, lexema e linha.
+
+\subsection{Erros léxicos}
+
+Toda entrada casa alguma regra: a última, \texttt{.}, transforma qualquer caractere não previsto
+em \texttt{UNDEF}. Cada erro devolve \texttt{UNDEF} com a mensagem em \texttt{error\_msg}, e a
+análise continua no caractere seguinte.
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Situação & Mensagem \\
+\midrule
+Fim do arquivo dentro de \texttt{/* ... */} & \texttt{EOF em comentario} \\
+\texttt{*/} fora de um comentário & \texttt{Comentario nao iniciado} \\
+Caractere vazio, sem fechar ou com mais de um símbolo & \texttt{Constante de caractere invalida} \\
+String com caractere nulo & \texttt{String contem caractere nulo} \\
+Quebra de linha antes de fechar a string & \texttt{String nao terminada} \\
+Fim do arquivo antes de fechar a string & \texttt{EOF em string} \\
+Caractere fora do alfabeto & o próprio caractere \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Mudanças no TP1 para servir ao TP2}
+
+A entrega original do TP1 era um programa autônomo: o \texttt{microc.flex} com \texttt{main()},
+que imprimia a lista de tokens de um arquivo. No TP2, o scanner precisa ser chamado pelo
+analisador gerado, um token por vez, sem conflitar com o resto do programa. As regras léxicas
+continuaram as mesmas; mudou a forma de ligar o scanner ao resto:
+\begin{itemize}
+\item \texttt{\%option prefix="microc\_yy" noyywrap noinput nounput}: o scanner passa a se chamar
+  \texttt{microc\_yylex()} e não colide com o léxico que o gerador escreve para as outras
+  gramáticas. \texttt{noinput} e \texttt{nounput} retiram funções não usadas, que gerariam aviso
+  com \texttt{-Wall}.
+\item \texttt{enum TokenType} e \texttt{YYSTYPE} saíram do \texttt{.flex} para
+  \texttt{microc/tokens.h}, que o gerador lê para descobrir os nomes dos terminais.
+\item O \texttt{main()} de teste só é compilado com \texttt{-DMICROC\_TESTE\_LEXICO}; sem a
+  macro, o único \texttt{main} é o do analisador gerado.
+\item A \texttt{yywrap()} manual deu lugar a \texttt{noyywrap}, e a nova
+  \texttt{microc\_libera\_tabela()} libera a tabela de strings no fim da análise.
+\item O adaptador novo \texttt{microc/scanner.c} expõe três funções: \texttt{scanner\_iniciar},
+  \texttt{proximo\_token} e \texttt{scanner\_finalizar}. A segunda monta um \texttt{Token} com o
+  lexema vindo da tabela de strings e, para \texttt{UNDEF}, com a mensagem de erro do TP1.
+\end{itemize}
+A entrega autônoma (\texttt{tests/test.mc} e \texttt{leiame.txt}) saiu da árvore do repositório e
+continua no histórico do git.
+
+\section{TP2: arquitetura do gerador}
 
 O gerador é um \emph{pipeline} de cinco etapas, cada uma em seu módulo de \texttt{src/}:
 
 \begin{center}
+\small
 \begin{tabular}{@{}rll@{}}
 \toprule
 Etapa & Módulo & Produto \\
@@ -54,6 +144,36 @@ Etapa & Módulo & Produto \\
 \bottomrule
 \end{tabular}
 \end{center}
+
+O \texttt{main.c} chama as etapas nessa ordem e para na primeira que reporta erro, antes de abrir
+qualquer arquivo de saída. Assim, uma gramática recusada nunca deixa um \texttt{.c} pela metade.
+
+\subsection{Estruturas de dados}
+
+Cada regra é guardada como uma árvore \texttt{Expr} (\texttt{src/gramatica.h}), com sete tipos de
+nó:
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+EBNF & Nó & Filhos \\
+\midrule
+terminal \texttt{t} & \texttt{E\_TERM} & índice em \texttt{g->terms} \\
+não terminal \texttt{B} & \texttt{E\_NAOTERM} & índice em \texttt{g->nts} \\
+\texttt{a b c} & \texttt{E\_SEQ} & \texttt{a}, \texttt{b}, \texttt{c} \\
+\texttt{a | b | c} & \texttt{E\_ALT} & \texttt{a}, \texttt{b}, \texttt{c} \\
+\texttt{[ a ]} & \texttt{E\_OPC} & \texttt{a} \\
+\texttt{\{ a \}} & \texttt{E\_REP} & \texttt{a} \\
+sequência vazia & \texttt{E\_VAZIO} & -- \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Cada nó guarda também a linha e a coluna de origem, usadas nas mensagens, e os seus próprios
+conjuntos anulável, FIRST e FOLLOW, preenchidos na etapa 3. Os terminais, inclusive os literais
+entre aspas, ganham um índice numa tabela única, e os conjuntos são vetores de bits
+(\texttt{bitset.c}) indexados por ele. União, interseção e teste de vazio custam uma passada pelo
+vetor, o que mantém barato o ponto fixo, que repete essas operações até estabilizar.
 
 \subsection{Léxico e árvore da EBNF}
 
@@ -76,14 +196,34 @@ e não definido, não terminal definido mais de uma vez e terminal nomeado não 
 \item \textbf{Recursão à esquerda} (erro): fecho transitivo (Warshall) do grafo \emph{pode
   começar com}, que atravessa prefixos anuláveis. Assim a recursão indireta e a recursão por
   prefixo anulável aparecem como ciclo; refazer apenas a linha do próprio não terminal separa o
-  caso direto do indireto, para a mensagem ser precisa.
+  caso direto do indireto, para a mensagem ser precisa. Por depender do anulável, essa função
+  de \texttt{verificacao.c} é chamada no início da etapa 3, antes do FIRST, cujo ponto fixo
+  nunca terminaria numa regra recursiva à esquerda.
 \end{itemize}
 
 \subsection{Anulável, FIRST e FOLLOW}
 
 Os três conjuntos são calculados por ponto fixo, com uma passada por regra até que nada mude,
 para cada não terminal e para cada subexpressão da árvore. Os conjuntos são bitsets
-(\texttt{bitset.c}). O FOLLOW percorre cada sequência de trás para a frente, acumulando o que
+(\texttt{bitset.c}). Anulável e FIRST seguem o tipo do nó:
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Nó & Anulável & FIRST \\
+\midrule
+\texttt{E\_TERM} \texttt{t} & não & $\{t\}$ \\
+\texttt{E\_NAOTERM} \texttt{B} & anulável(B) & FIRST(B) \\
+\texttt{E\_SEQ} $a_1 \dots a_n$ & todos os $a_i$ anuláveis & $\bigcup$ FIRST($a_i$) enquanto o prefixo anterior for anulável \\
+\texttt{E\_ALT} & algum filho anulável & $\bigcup$ FIRST dos filhos \\
+\texttt{E\_OPC}, \texttt{E\_REP} & sim & FIRST do filho \\
+\texttt{E\_VAZIO} & sim & $\emptyset$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent O valor de um não terminal é o da raiz da sua regra; como uma regra pode citar outra,
+ainda não calculada, a passada se repete até que nenhum bit mude. O FOLLOW percorre cada sequência de trás para a frente, acumulando o que
 pode vir depois de cada filho; no corpo de uma repetição \texttt{\{ a \}}, \texttt{follow(a)}
 recebe também \texttt{FIRST(a)}, pois depois de uma iteração pode vir outra. O FOLLOW do símbolo
 inicial contém o marcador de fim de entrada \texttt{\$}. A opção \texttt{--sets} imprime a
@@ -104,9 +244,48 @@ Cada regra vira uma função C, com a regra EBNF de origem em comentário. A seq
 ordem; a alternativa vira \texttt{if / else if}, com a alternativa anulável no \texttt{else}
 final no lugar do erro; \texttt{[ ]} vira \texttt{if} e \texttt{\{ \}} vira \texttt{while}. Os
 conjuntos de decisão saem como \texttt{static const int conj\_N[] = \{ ..., -1 \};} e o erro
-sintático lista os tokens esperados, obtidos de FIRST. O analisador gerado aceita
-\texttt{--debug}, \texttt{--sets}, \texttt{--tree} (impressão da árvore de derivação) e
-\texttt{--tokens} (entrada vinda de um arquivo de tokens).
+sintático lista os tokens esperados, obtidos de FIRST. A regra \texttt{term} da gramática de
+expressões, por exemplo, vira:
+
+\begin{lstlisting}[language=C]
+/* term = factor { ( '*' | '/' ) factor } ; */
+void parse_term(void)
+{
+    arvore_entra("term");
+    parse_factor();
+    while (tok.tipo == T_VEZES || tok.tipo == T_BARRA) {
+        if (tok.tipo == T_VEZES) {
+            match(T_VEZES);
+        } else if (tok.tipo == T_BARRA) {
+            match(T_BARRA);
+        } else {
+            erro_sintatico(conj_1);
+        }
+        parse_factor();
+    }
+    arvore_sai();
+}
+\end{lstlisting}
+
+\noindent A condição do \texttt{while} é o FIRST do corpo da repetição; \texttt{match} consome o
+token esperado ou para com erro; \texttt{conj\_1} é \texttt{\{ T\_VEZES, T\_BARRA, -1 \}}, a
+lista que aparece na mensagem. Os nomes \texttt{T\_...} vêm do \texttt{enum} gravado em
+\texttt{prefixo.h}, e literais recebem nomes legíveis (\texttt{'*'} vira \texttt{T\_VEZES},
+\texttt{'('} vira \texttt{T\_ABRE\_PAR}).
+
+\paragraph{Opções do analisador gerado.} \texttt{arvore\_entra} e \texttt{arvore\_sai} só imprimem
+quando o analisador foi gerado com \texttt{--tree} e executado com \texttt{--tree}: cada chamada de
+procedimento é um nível de recuo, e cada token consumido é uma folha. Com \texttt{--tokens
+arquivo}, os tokens vêm de um arquivo com uma linha por token, no formato do livro-texto
+(\texttt{Token: tipo = 34, lexema = 'int', linha = 1}), em vez do léxico. Esse modo isola o
+analisador sintático: se a leitura direta e a leitura do arquivo derem saídas diferentes, o
+defeito está no léxico ou no adaptador, e não nas regras.
+
+\paragraph{Memória.} O gerador libera a gramática, a tabela de tokens da Micro C e o texto lido
+antes de sair. No analisador gerado, a função \texttt{limpar()} fecha a entrada e libera o buffer
+e o scanner; ela é registrada com \texttt{atexit} e roda tanto na aceitação quanto em qualquer
+saída por erro léxico ou sintático. Essa correção veio da revisão final: antes dela, toda entrada
+rejeitada terminava com arquivo aberto e memória alocada.
 
 \paragraph{Léxico próprio.} Para as gramáticas com seção \texttt{TOKENS}, o gerador emite também
 o analisador léxico. Cada expressão regular é convertida em AFN (construção de Thompson), em AFD
@@ -162,19 +341,31 @@ geração. Arquivo inexistente devolve 2.
 
 \section{Testes e resultados}
 
-Os resultados abaixo foram medidos em 04/11/2026, com o gcc 15.3.0 do MSYS2 no Windows 11.
+Os resultados abaixo foram medidos em 16/11/2026 sobre uma cópia limpa do repositório, em dois
+ambientes: Ubuntu 24.04 (gcc 13.3.0, flex 2.6.4, valgrind 3.22.0), o sistema em que o trabalho é
+corrigido, e Windows 11 com o MSYS2 (gcc 15.3.0).
 
 \begin{center}
-\begin{tabular}{@{}lp{7.2cm}r@{}}
+\small
+\begin{tabular}{@{}lp{7.6cm}r@{}}
 \toprule
 Verificação & Resultado & \\
 \midrule
-\texttt{make} & compila sem avisos de compilador; apenas o diagnóstico exigido do \emph{else} pendente & saída 0 \\
-\texttt{make test} & testes do professor e do grupo & 35 de 35 \\
-Parser da Micro C & compilado com \texttt{gcc -ansi -pedantic -Wall -Wextra} & sem avisos \\
+\texttt{make clean \&\& make} & sem avisos do compilador; só o diagnóstico exigido do \emph{else} pendente & saída 0 \\
+\texttt{TODO(aluno)} & \texttt{grep -rn "TODO(aluno)" src microc} & nenhum \\
+\texttt{make test} & testes do professor e do grupo, com \texttt{make microc} & 35 de 35 \\
+Código gerado & \texttt{expr}, \texttt{json}, \texttt{comandos} e Micro C com \texttt{gcc -ansi -pedantic -Wall -Wextra} & sem avisos \\
+\texttt{valgrind} & \texttt{--leak-check=full}: o gerador nas 10 gramáticas e cada analisador em todos os seus programas, com e sem \texttt{--tree} & 60 execuções, 0 erros \\
+\texttt{--tokens} & nos 6 programas de Micro C, a saída e o código de saída com \texttt{--tokens} são iguais aos da leitura direta & 6 de 6 \\
 \bottomrule
 \end{tabular}
 \end{center}
+
+O \texttt{make test} executa \texttt{testes/executar.sh}, que roda o gerador com \texttt{--sets}
+em cada gramática e cada analisador em cada programa, e compara a saída, inclusive a linha final
+\texttt{status 0} ou \texttt{status 1}, com o arquivo esperado por \texttt{diff}. O arquivo de
+tokens do teste de \texttt{--tokens} foi gravado por um programa auxiliar que chama
+\texttt{proximo\_token()} até \texttt{END\_OF\_FILE}.
 
 \subsection{Gramáticas}
 
@@ -182,7 +373,8 @@ Foram escritas dez gramáticas de teste em \texttt{testes/gramaticas/}: quatro v
 erro (o enunciado exige ao menos três válidas, uma delas a Micro C, e duas com erro).
 
 \begin{center}
-\begin{tabular}{@{}lll@{}}
+\small
+\begin{tabular}{@{}llp{8.2cm}@{}}
 \toprule
 Gramática & Tipo & O que exercita \\
 \midrule
@@ -202,22 +394,10 @@ Gramática & Tipo & O que exercita \\
 
 \subsection{Programas aceitos e rejeitados}
 
-Para cada gramática válida há três programas aceitos e três rejeitados, o mínimo exigido, o que
-dá 25 programas (em \texttt{testes/programas/}). As saídas esperadas de \texttt{--sets} e das
-mensagens de erro estão em \texttt{testes/esperado/} e são conferidas por \texttt{diff}.
-
-\begin{center}
-\begin{tabular}{@{}lcc@{}}
-\toprule
-Gramática & Aceitos & Rejeitados \\
-\midrule
-\texttt{comandos} & 3 & 3 \\
-\texttt{json} & 3 & 3 \\
-\texttt{expr} & 3 & 4 \\
-\texttt{microc} & 3 & 3 \\
-\bottomrule
-\end{tabular}
-\end{center}
+Cada gramática válida tem ao menos três programas aceitos e três rejeitados, o mínimo exigido:
+\texttt{comandos}, \texttt{json} e \texttt{microc} têm 3 e 3, e \texttt{expr} tem 3 e 4, o que
+dá 25 programas em \texttt{testes/programas/}. As saídas esperadas do \texttt{--sets} estão em
+\texttt{testes/esperado/}; as dos programas, ao lado de cada um, em arquivos \texttt{.esperado}.
 
 \subsection{Robustez}
 
@@ -225,8 +405,43 @@ Além dos 35 testes, o gerador e os analisadores gerados foram exercitados com e
 gramáticas vazias, literais ou expressões regulares sem fechar, nomes reservados do C, arquivos
 com CRLF, parênteses aninhados em excesso e bytes aleatórios. O critério é que o gerador e os
 analisadores terminem sempre com 0 ou 1 (2 para arquivo inexistente), sem travar nem cair, e que
-todo código gerado compile com 	exttt{-Werror}. Esse exercício encontrou o defeito do literal
-com 	exttt{*/} descrito acima.
+todo código gerado compile com \texttt{-Werror}. Esse exercício encontrou o defeito do literal
+com \texttt{*/} descrito acima.
+
+\subsection{Exemplos de saída}
+
+Para a entrada \texttt{2 * x}, o analisador de expressões gerado com \texttt{--tree} imprime a
+árvore de derivação e aceita; para \texttt{2 * (x + )}, aponta a posição e os tokens esperados:
+
+\begin{lstlisting}
+$ ./build/expr_bin --tree exemplo.txt
+expr
+  term
+    factor
+      NUM '2'
+    '*'
+    factor
+      ID 'x'
+entrada aceita
+$ ./build/expr_bin erro.txt
+linha 1, coluna 10: encontrado ')', esperado um de {NUM, ID, '('}
+\end{lstlisting}
+
+\noindent No modo Micro C, o scanner do TP1 só registra a linha, então as mensagens não têm
+coluna, e o erro léxico traz a mensagem do TP1:
+
+\begin{lstlisting}
+linha 3: encontrado ';', esperado um de {'(', ID, INTEGERCONST, CHARCONST, '!'}
+linha 2: erro lexico: String nao terminada
+\end{lstlisting}
+
+\subsection{Revisão final do código}
+
+Depois de os testes passarem, o código foi revisado função por função, e duas mudanças entraram:
+a liberação de memória do analisador gerado por \texttt{atexit}, descrita na Seção 3, e a
+remoção de trechos redundantes em \texttt{automato.c}, \texttt{conjuntos.c} e
+\texttt{verificacao.c} (41 linhas removidas e 16 acrescentadas, sem mudar nenhuma saída). Os 35
+testes foram repetidos depois de cada mudança.
 
 \section{Limitações}
 
@@ -237,8 +452,14 @@ com 	exttt{*/} descrito acima.
   lista os tokens esperados; não continua a análise depois dele.
 \item \textbf{LL(1) com resolução gulosa.} Só o conflito de \texttt{[ ]} e \texttt{\{ \}} é
   tolerado, com aviso; qualquer outro conflito impede a geração.
-\item \textbf{Ambiente.} Os números valem para o gcc 15.3.0 do MSYS2; outros compiladores não
-  foram testados.
+\item \textbf{Sem coluna no modo Micro C.} O scanner do TP1 só conta linhas, e as mensagens desse
+  modo trazem apenas a linha.
+\item \textbf{Expressões regulares restritas.} O léxico próprio aceita caractere, escape
+  \texttt{\textbackslash x}, \texttt{.}, classes \texttt{[abc]}, \texttt{[a-z]} e \texttt{[\^{}...]},
+  agrupamento, \texttt{|}, \texttt{*}, \texttt{+} e \texttt{?}; não há quantificadores
+  \texttt{\{n,m\}} nem âncoras.
+\item \textbf{Ambiente.} Testado no gcc 13.3.0 (Ubuntu 24.04) e no gcc 15.3.0 (MSYS2); o valgrind
+  só roda no Linux.
 \end{itemize}
 
 \section{Uso de IA}
