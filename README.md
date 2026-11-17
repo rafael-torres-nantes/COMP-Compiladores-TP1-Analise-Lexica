@@ -99,10 +99,10 @@ Diferenças entre o `microc.flex` da entrega original do TP1 (no histórico do r
 ```bash
 ./gerador testes/gramaticas/expr.ebnf -o build/expr --tree
 gcc -ansi -pedantic -Wall -Wextra -o build/expr_bin build/expr.c
-./build/expr_bin --tree programa.txt     # ou: ./build/expr_bin --tokens tokens.txt
+./build/expr_bin --tree programa.txt     # ou: --tree-line programa.txt, ou: --tokens tokens.txt
 ```
 
-Opções: `-o prefixo` grava `prefixo.c` e `prefixo.h`, `--sets` imprime anulável, FIRST e FOLLOW, `--debug` imprime a gramática lida, `--tree` inclui a árvore de derivação e `--scanner microc` usa o scanner do TP1 (`TOKENS EXTERN "tokens.h" ;`).
+Opções: `-o prefixo` grava `prefixo.c` e `prefixo.h`, `--sets` imprime anulável, FIRST e FOLLOW, `--debug` imprime a gramática lida, `--tree` inclui a árvore de derivação e `--scanner microc` usa o scanner do TP1 (`TOKENS EXTERN "tokens.h" ;`). No analisador gerado, `--tree` imprime a árvore no formato do código-base e `--tree-line` (extra) imprime a mesma árvore com linhas de ligação, como o comando `tree`.
 
 O que foi implementado em cada `TODO(aluno)` do código-base:
 
@@ -112,7 +112,7 @@ O que foi implementado em cada `TODO(aluno)` do código-base:
 | `src/verificacao.c` | Inalcançáveis (aviso, busca a partir do símbolo inicial), improdutivos (erro, ponto fixo) e recursão à esquerda direta, indireta e por prefixo anulável (erro, fecho transitivo de Warshall) |
 | `src/conjuntos.c` | Anulável, FIRST e FOLLOW por ponto fixo, para cada não terminal e cada subexpressão, em vetores de bits (`bitset.c`); no corpo de `{ a }`, `FOLLOW(a)` recebe `FIRST(a)` |
 | `src/ll1.c` | Erros: FIRST de alternativas não disjuntos, mais de uma alternativa anulável, FOLLOW de alternativa anulável cruzando o FIRST de outra, corpo anulável em `[ ]` ou `{ }`. Aviso: FIRST ∩ FOLLOW em `[ ]` ou `{ }`, resolvido de forma gulosa |
-| `src/codegen.c` | Uma função `parse_X()` por regra: sequência em ordem, alternativa em `if / else if`, `[ ]` em `if`, `{ }` em `while`; conjuntos de decisão em `static const int conj_N[]`; suporte a `--tree` e `--tokens`; `limpar()` registrada com `atexit` |
+| `src/codegen.c` | Uma função `parse_X()` por regra: sequência em ordem, alternativa em `if / else if`, `[ ]` em `if`, `{ }` em `while`; conjuntos de decisão em `static const int conj_N[]`; suporte a `--tree`, `--tree-line` e `--tokens`; `limpar()` registrada com `atexit` |
 | `src/automato.c` | Léxico próprio: regex → AFN (Thompson) → AFD (subconjuntos) → AFD mínimo (Moore), emitido como `switch` por estado; vence o maior prefixo e, em empate, o literal |
 | `src/microc_mapa.c` | Lê o `enum TokenType` do `tokens.h` do TP1 para mapear os terminais da gramática de Micro C |
 | `microc/scanner.c` | Adaptador do scanner do TP1 (ver [Correções feitas desde o TP1](#correções-feitas-desde-o-tp1)) |
@@ -262,6 +262,37 @@ entrada aceita
 ```
 
 Cada nível de recuo é uma chamada de procedimento do analisador (um não terminal da gramática); as folhas, com o lexema entre aspas, são os tokens lidos da entrada.
+
+### Árvore com linhas de ligação (`--tree-line`, extra)
+
+O `--tree` acima é o formato do código-base do professor e continua igual. O `--tree-line` imprime a mesma árvore com linhas de ligação, como o comando `tree`, o que facilita ver quem é filho de quem em árvores fundas. O analisador também precisa ter sido gerado com `--tree`.
+
+```bash
+echo '2 * (x + 1)' > build/arv.txt
+./build/expr_bin --tree-line build/arv.txt
+```
+
+```
+expr
+└── term
+    ├── factor
+    │   └── NUM '2'
+    ├── '*'
+    └── factor
+        ├── '('
+        ├── expr
+        │   ├── term
+        │   │   └── factor
+        │   │       └── ID 'x'
+        │   ├── '+'
+        │   └── term
+        │       └── factor
+        │           └── NUM '1'
+        └── ')'
+entrada aceita
+```
+
+Para desenhar `└──` no último filho, é preciso saber se ainda vem algum irmão. Por isso os nós são guardados num vetor (texto e nível) durante a análise e impressos só no fim, antes de `entrada aceita`. A impressão roda também em `limpar()` (registrada com `atexit`), então num erro sintático ou léxico a árvore sai até o ponto da falha. As linhas são caracteres UTF-8; o terminal precisa estar em UTF-8.
 
 ### Modo Micro C (scanner do TP1)
 

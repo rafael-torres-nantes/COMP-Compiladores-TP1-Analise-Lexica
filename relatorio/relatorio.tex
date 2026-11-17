@@ -275,7 +275,11 @@ lista que aparece na mensagem. Os nomes \texttt{T\_...} vêm do \texttt{enum} gr
 
 \paragraph{Opções do analisador gerado.} \texttt{arvore\_entra} e \texttt{arvore\_sai} só imprimem
 quando o analisador foi gerado com \texttt{--tree} e executado com \texttt{--tree}: cada chamada de
-procedimento é um nível de recuo, e cada token consumido é uma folha. Com \texttt{--tokens
+procedimento é um nível de recuo, e cada token consumido é uma folha. Esse é o formato do
+código-base. Como extra, \texttt{--tree-line} imprime a mesma árvore com linhas de ligação, como
+o comando \texttt{tree}: os nós ficam num vetor (texto e nível) e saem só no fim, porque desenhar o
+canto do último filho exige saber se ainda vem algum irmão. A impressão roda também em
+\texttt{limpar()}, então um erro mostra a árvore até o ponto da falha. Com \texttt{--tokens
 arquivo}, os tokens vêm de um arquivo com uma linha por token, no formato do livro-texto
 (\texttt{Token: tipo = 34, lexema = 'int', linha = 1}), em vez do léxico. Esse modo isola o
 analisador sintático: se a leitura direta e a leitura do arquivo derem saídas diferentes, o
@@ -484,6 +488,7 @@ Para gerar e usar um analisador:
 ./gerador testes/gramaticas/expr.ebnf -o build/expr --tree
 gcc -ansi -pedantic -Wall -Wextra -o build/expr_bin build/expr.c
 ./build/expr_bin --tree programa.txt
+./build/expr_bin --tree-line programa.txt
 ./build/expr_bin --tokens tokens.txt
 \end{lstlisting}
 

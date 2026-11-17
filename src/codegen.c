@@ -500,7 +500,7 @@ static const char *const rt_estado[] = {
     "/* ---- estado do analisador ---- */",
     "",
     "static Token tok;                  /* token corrente (lookahead) */",
-    "static int imprimir_arvore = 0;    /* opcao --tree */",
+    "static int imprimir_arvore = 0;    /* --tree: 1; --tree-line: 2 */",
     "static int nivel_arvore = 0;",
     "static FILE *arquivo_tokens = NULL; /* opcao --tokens */",
     "",
@@ -547,9 +547,67 @@ static const char *const rt_primitivas[] = {
     "        fputs(\"  \", stdout);",
     "}",
     "",
+    "/* --tree-line: os nos ficam na memoria e saem no fim, com linhas de",
+    " * ligacao. Sem a arvore inteira nao da para saber se um no e o ultimo",
+    " * filho (desenhado com o canto) ou se ainda tem irmaos abaixo. */",
+    "static char **no_texto = NULL;",
+    "static int *no_nivel = NULL;",
+    "static int nos = 0, cap_nos = 0;",
+    "",
+    "static void guardar_no(const char *nome, const char *lexema)",
+    "{",
+    "    char *s = (char *) malloc(strlen(nome) + (lexema != NULL ? strlen(lexema) + 4 : 1));",
+    "    if (nos == cap_nos) {",
+    "        cap_nos = cap_nos > 0 ? 2 * cap_nos : 64;",
+    "        no_texto = (char **) realloc(no_texto, cap_nos * sizeof *no_texto);",
+    "        no_nivel = (int *) realloc(no_nivel, cap_nos * sizeof *no_nivel);",
+    "    }",
+    "    if (s == NULL || no_texto == NULL || no_nivel == NULL) {",
+    "        nos = 0;",
+    "        fprintf(stderr, \"memoria insuficiente\\n\");",
+    "        exit(EXIT_FAILURE);",
+    "    }",
+    "    if (lexema != NULL)",
+    "        sprintf(s, \"%s '%s'\", nome, lexema);",
+    "    else",
+    "        strcpy(s, nome);",
+    "    no_texto[nos] = s;",
+    "    no_nivel[nos++] = nivel_arvore;",
+    "}",
+    "",
+    "/* Imprime e libera a arvore guardada. Chamada antes da mensagem de aceite",
+    " * e em limpar(), para que um erro mostre a arvore ate o ponto da falha. */",
+    "static void arvore_linhas(void)",
+    "{",
+    "    int i, j, k, ultimo;",
+    "    int *continua = (int *) calloc((size_t) nos + 1, sizeof(int));",
+    "    for (i = 0; continua != NULL && i < nos; i++) {",
+    "        /* pula a subarvore de i: o proximo no do mesmo nivel e irmao */",
+    "        for (j = i + 1; j < nos && no_nivel[j] > no_nivel[i]; j++)",
+    "            ;",
+    "        ultimo = j == nos || no_nivel[j] < no_nivel[i];",
+    "        for (k = 1; k < no_nivel[i]; k++)",
+    "            fputs(continua[k] ? \"\\342\\224\\202   \" : \"    \", stdout);",
+    "        if (no_nivel[i] > 0)",
+    "            fputs(ultimo ? \"\\342\\224\\224\\342\\224\\200\\342\\224\\200 \"",
+    "                         : \"\\342\\224\\234\\342\\224\\200\\342\\224\\200 \", stdout);",
+    "        printf(\"%s\\n\", no_texto[i]);",
+    "        continua[no_nivel[i]] = !ultimo;",
+    "        free(no_texto[i]);",
+    "    }",
+    "    free(continua);",
+    "    free(no_texto);",
+    "    free(no_nivel);",
+    "    no_texto = NULL;",
+    "    no_nivel = NULL;",
+    "    nos = cap_nos = 0;",
+    "}",
+    "",
     "void arvore_entra(const char *nao_terminal)",
     "{",
-    "    if (imprimir_arvore) {",
+    "    if (imprimir_arvore == 2) {",
+    "        guardar_no(nao_terminal, NULL);",
+    "    } else if (imprimir_arvore) {",
     "        recuo();",
     "        printf(\"%s\\n\", nao_terminal);",
     "    }",
@@ -564,18 +622,23 @@ static const char *const rt_primitivas[] = {
     "/* Consome o token corrente se for do tipo esperado; senao, erro. */",
     "void match(int esperado)",
     "{",
-    "    int lista[2];",
+    "    int lista[2], literal;",
     "    if ((int) tok.tipo != esperado) {",
     "        lista[0] = esperado;",
     "        lista[1] = -1;",
     "        erro_sintatico(lista);",
     "    }",
     "    if (SUPORTE_ARVORE && imprimir_arvore) {",
-    "        recuo();",
-    "        if (nome_token(tok.tipo)[0] == '\\'' || nome_token(tok.tipo)[0] == '\"')",
-    "            printf(\"%s\\n\", nome_token(tok.tipo));",
-    "        else",
-    "            printf(\"%s '%s'\\n\", nome_token(tok.tipo), tok.lexema);",
+    "        literal = nome_token(tok.tipo)[0] == '\\'' || nome_token(tok.tipo)[0] == '\"';",
+    "        if (imprimir_arvore == 2) {",
+    "            guardar_no(nome_token(tok.tipo), literal ? NULL : tok.lexema);",
+    "        } else {",
+    "            recuo();",
+    "            if (literal)",
+    "                printf(\"%s\\n\", nome_token(tok.tipo));",
+    "            else",
+    "                printf(\"%s '%s'\\n\", nome_token(tok.tipo), tok.lexema);",
+    "        }",
     "    }",
     "    avancar();",
     "}",
@@ -853,6 +916,7 @@ static void gerar_main(FILE *f, const Gramatica *g, const OpcoesGeracao *op)
     fputs("/* Libera tudo o que ainda estiver aberto ou alocado. Registrada com\n"
           " * atexit: roda tanto na aceitacao quanto em qualquer exit de erro. */\n", f);
     fputs("static void limpar(void)\n{\n", f);
+    fputs("    arvore_linhas();\n", f);
     fputs("    if (arquivo_tokens != NULL)\n        fclose(arquivo_tokens);\n", f);
     if (op->microc)
         fputs("    if (arquivo_tokens == NULL && entrada != NULL)\n"
@@ -866,10 +930,12 @@ static void gerar_main(FILE *f, const Gramatica *g, const OpcoesGeracao *op)
     fputs("    for (i = 1; i < argc; i++) {\n", f);
     fputs("        if (strcmp(argv[i], \"--tree\") == 0) {\n", f);
     fputs("            imprimir_arvore = 1;\n", f);
+    fputs("        } else if (strcmp(argv[i], \"--tree-line\") == 0) {\n", f);
+    fputs("            imprimir_arvore = 2;\n", f);
     fputs("        } else if (strcmp(argv[i], \"--tokens\") == 0 && i + 1 < argc) {\n", f);
     fputs("            tokens = argv[++i];\n", f);
     fputs("        } else if (argv[i][0] == '-' && argv[i][1] != '\\0') {\n", f);
-    fputs("            fprintf(stderr, \"uso: %s [--tree] [--tokens arquivo.tok | "
+    fputs("            fprintf(stderr, \"uso: %s [--tree | --tree-line] [--tokens arquivo.tok | "
           "programa]\\n\", argv[0]);\n", f);
     fputs("            return 2;\n        } else {\n            arquivo = argv[i];\n"
           "        }\n    }\n", f);
@@ -895,6 +961,7 @@ static void gerar_main(FILE *f, const Gramatica *g, const OpcoesGeracao *op)
     fputs("    if (tok.tipo != TOKEN_FIM) {\n", f);
     fputs("        fim[0] = TOKEN_FIM;\n        fim[1] = -1;\n", f);
     fputs("        erro_sintatico(fim);\n    }\n", f);
+    fputs("    arvore_linhas();\n", f);
     fputs("    printf(\"entrada aceita\\n\");\n", f);
     fputs("    return 0;\n}\n", f);
 }
