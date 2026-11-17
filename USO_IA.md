@@ -43,7 +43,14 @@ testes; proibido gerar a solução das partes a implementar.
 - Finalidade: validar a lógica de algumas partes antes de implementá-las, por exemplo a ordem do ponto fixo de FIRST e FOLLOW e a detecção de recursão à esquerda por prefixo anulável.
 - O que fiz: escrevi o código das etapas. As respostas serviram para conferir o raciocínio e apontar casos de borda.
 
-### 6. Ajustes no relatório e no README
+### 6. Execução dos testes simulando Ubuntu
+
+- Ferramenta: Claude (Anthropic)
+- Trecho: execução dos testes em `testes/`
+- Finalidade: como minha máquina é Windows, usei a IA para me ajudar a rodar os testes num ambiente Ubuntu simulado com Docker.
+- O que fiz: conferi os resultados dos testes e corrigi no código o que eles apontaram.
+
+### 7. Ajustes no relatório e no README
 
 - Ferramenta: Claude (Anthropic)
 - Trecho: `relatorio/relatorio.tex` e `README.md`
